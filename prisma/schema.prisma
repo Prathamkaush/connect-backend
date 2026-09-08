@@ -1,0 +1,332 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum ConversationStatus {
+  ACTIVE
+  ARCHIVED
+  DELETED
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MessageStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REJECTED
+}
+
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum UsageType {
+  FREE
+  SUBSCRIPTION
+}
+
+enum ReservationStatus {
+  RESERVED
+  CONFIRMED
+  RELEASED
+}
+
+enum PaymentProvider {
+  RAZORPAY
+  STRIPE
+}
+
+enum PaymentStatus {
+  CREATED
+  AUTHORIZED
+  PAID
+  FAILED
+  REFUNDED
+}
+
+enum ArticleStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model User {
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  passwordHash    String
+  role            UserRole @default(USER)
+  isActive        Boolean  @default(true)
+  emailVerified   Boolean  @default(false)
+  freeQuotaUsed   Int      @default(0)
+  freeQuotaReserved Int    @default(0)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  refreshSessions RefreshSession[]
+  conversations   Conversation[]
+  subscriptions   UserSubscription[]
+  questionUsage   QuestionUsage[]
+  questionReservations QuestionReservation[]
+  payments        Payment[]
+  invoices        Invoice[]
+  activityLogs    ActivityLog[] @relation("AdminActivity")
+
+  @@index([createdAt])
+}
+
+model RefreshSession {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+}
+
+model Master {
+  id                String   @id @default(cuid())
+  name              String
+  slug              String   @unique
+  shortDescription  String
+  description       String
+  tradition         String?
+  era               String?
+  guideTitle        String?
+  guideContent      Json             @default("[]")
+  imageUrl          String?
+  imageStorageKey   String?
+  systemPrompt      String   @db.Text
+  personalityPrompt String   @db.Text
+  allowedTopics     String[]
+  restrictedTopics  String[]
+  responseStyle     String
+  fallbackMessage   String   @db.Text
+  greetingMessage   String   @db.Text
+  model             String
+  temperature       Float    @default(0.7)
+  maxOutputTokens   Int      @default(800)
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  conversations     Conversation[]
+
+  @@index([isActive, name])
+}
+
+model Conversation {
+  id            String             @id @default(cuid())
+  userId        String
+  masterId      String
+  title         String?
+  summary       String?            @db.Text
+  status        ConversationStatus @default(ACTIVE)
+  lastMessageAt DateTime           @default(now())
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  master        Master             @relation(fields: [masterId], references: [id])
+  messages      Message[]
+  questionUsage QuestionUsage[]
+  questionReservations QuestionReservation[]
+
+  @@index([userId, status, lastMessageAt(sort: Desc)])
+  @@index([masterId, lastMessageAt(sort: Desc)])
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  role           MessageRole
+  content        String        @db.Text
+  inputTokens    Int?
+  outputTokens   Int?
+  status         MessageStatus @default(PENDING)
+  createdAt      DateTime      @default(now())
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  questionUsage  QuestionUsage?
+  questionReservation QuestionReservation?
+
+  @@index([conversationId, createdAt(sort: Desc)])
+}
+
+model SubscriptionPlan {
+  id            String   @id @default(cuid())
+  name          String   @unique
+  description   String
+  price         Decimal  @db.Decimal(12, 2)
+  currency      String   @default("INR")
+  questionQuota Int
+  validityDays  Int
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  subscriptions UserSubscription[]
+  payments      Payment[]
+}
+
+model UserSubscription {
+  id            String             @id @default(cuid())
+  userId        String
+  planId        String
+  status        SubscriptionStatus @default(PENDING)
+  quotaTotal    Int
+  quotaUsed     Int                @default(0)
+  quotaReserved Int                @default(0)
+  startsAt      DateTime
+  expiresAt     DateTime
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan          SubscriptionPlan   @relation(fields: [planId], references: [id])
+  questionUsage QuestionUsage[]
+  questionReservations QuestionReservation[]
+  payments      Payment[]
+
+  @@index([userId, status, expiresAt])
+}
+
+model QuestionUsage {
+  id             String       @id @default(cuid())
+  userId         String
+  subscriptionId String?
+  conversationId String
+  messageId      String       @unique
+  requestId      String       @unique
+  quantity       Int          @default(1)
+  usageType      UsageType
+  createdAt      DateTime     @default(now())
+  user           User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  subscription   UserSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  message        Message      @relation(fields: [messageId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([subscriptionId, createdAt])
+}
+
+model QuestionReservation {
+  id             String            @id @default(cuid())
+  requestId      String            @unique
+  userId         String
+  subscriptionId String?
+  conversationId String
+  messageId      String?           @unique
+  usageType      UsageType
+  quantity       Int               @default(1)
+  status         ReservationStatus @default(RESERVED)
+  expiresAt      DateTime
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  user           User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  subscription   UserSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Restrict)
+  message        Message?          @relation(fields: [messageId], references: [id], onDelete: Restrict)
+
+  @@index([status, expiresAt])
+  @@index([userId, createdAt])
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  userId            String
+  planId            String
+  subscriptionId    String?
+  provider          PaymentProvider
+  providerOrderId   String          @unique
+  providerPaymentId String?         @unique
+  providerEventId   String?         @unique
+  amount            Decimal         @db.Decimal(12, 2)
+  currency          String          @default("INR")
+  status            PaymentStatus   @default(CREATED)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  user              User            @relation(fields: [userId], references: [id], onDelete: Restrict)
+  plan              SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+  subscription      UserSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+  invoice           Invoice?
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, createdAt])
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  userId        String
+  paymentId     String   @unique
+  invoiceNumber String   @unique
+  invoiceUrl    String?
+  subtotal      Decimal  @db.Decimal(12, 2)
+  tax           Decimal  @db.Decimal(12, 2)
+  total         Decimal  @db.Decimal(12, 2)
+  createdAt     DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  payment       Payment  @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+model ActivityLog {
+  id          String   @id @default(cuid())
+  adminUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  metadata    Json?
+  ipAddress   String?
+  createdAt   DateTime @default(now())
+  adminUser   User?    @relation("AdminActivity", fields: [adminUserId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt(sort: Desc)])
+  @@index([entityType, entityId])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model Article {
+  id              String        @id @default(cuid())
+  title           String
+  slug            String        @unique
+  excerpt         String
+  content         String        @db.Text
+  category        String
+  author          String
+  coverImageUrl   String?
+  metaTitle       String?
+  metaDescription String?
+  focusKeyword    String?
+  seoScore        Int           @default(0)
+  status          ArticleStatus @default(DRAFT)
+  views           Int           @default(0)
+  publishedAt     DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([category, updatedAt(sort: Desc)])
+}
