@@ -1,5 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, IsUrl, Length, Matches, Max, Min } from 'class-validator';
+import { IsIn, ArrayMaxSize, IsArray, IsBoolean, IsInt, IsNumber, IsOptional, IsString, IsUrl, Length, Matches, Max, Min } from 'class-validator';
+
+import { VOICES } from '../../voice/voice.policy';
 
 export type GuideBlock =
   | { type: 'heading'; text: string; level: 2 | 3 }
@@ -10,6 +12,9 @@ export type GuideBlock =
   | { type: 'image'; url: string; alt: string; caption?: string };
 
 export class CreateMasterDto {
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() voiceEnabled?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsIn(VOICES) voice?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 4000) voiceInstructions?: string;
   @ApiProperty() @IsString() @Length(2, 100) name: string;
   @ApiProperty() @IsString() @Length(2, 100) @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/) slug: string;
   @ApiProperty() @IsString() @Length(10, 240) shortDescription: string;
@@ -33,6 +38,9 @@ export class CreateMasterDto {
 }
 
 export class UpdateMasterDto {
+  @ApiPropertyOptional() @IsOptional() @IsBoolean() voiceEnabled?: boolean;
+  @ApiPropertyOptional() @IsOptional() @IsIn(VOICES) voice?: string;
+  @ApiPropertyOptional() @IsOptional() @IsString() @Length(0, 4000) voiceInstructions?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(2, 100) name?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(10, 240) shortDescription?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() @Length(20, 10000) description?: string;

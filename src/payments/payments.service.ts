@@ -14,7 +14,7 @@ export class PaymentsService {
     if (!plan || plan.price.lte(0)) throw new NotFoundException({ code: 'PAID_PLAN_NOT_FOUND', message: 'Paid subscription plan not found.' });
     const receipt = `c2i-${Date.now()}-${userId.slice(-6)}`.slice(0, 40);
     const order = await this.gateway.createOrder(plan.price.mul(100).toNumber(), plan.currency, receipt);
-    const payment = await this.payments.create({ userId, planId: plan.id, provider: PaymentProvider.RAZORPAY, providerOrderId: order.id, amount: plan.price, currency: plan.currency });
+    const payment = await this.payments.create({ userId, planId: plan.id, provider: PaymentProvider.RAZORPAY, providerOrderId: order.id, amount: plan.price, currency: plan.currency, voiceSeconds: plan.voiceEnabled ? plan.voiceSeconds : 0 });
     return { paymentId: payment.id, orderId: order.id, amount: order.amount, currency: order.currency, keyId: this.gateway.publicKey };
   }
   async verify(userId: string, dto: VerifyPaymentDto) {
@@ -47,12 +47,17 @@ export class PaymentsService {
       }
       const claimed = await tx.payment.updateMany({ where: { id: payment.id, status: { not: PaymentStatus.PAID } }, data: { status: PaymentStatus.AUTHORIZED } });
       if (!claimed.count) return tx.payment.findUniqueOrThrow({ where: { id: payment.id }, include: { plan: true, subscription: true, invoice: true } });
+      await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${payment.userId} FOR UPDATE`;
       const startsAt = new Date();
       const expiresAt = new Date(startsAt.getTime() + payment.plan.validityDays * 86_400_000);
       await tx.userSubscription.updateMany({ where: { userId: payment.userId, status: SubscriptionStatus.ACTIVE }, data: { status: SubscriptionStatus.CANCELLED } });
-      const subscription = await tx.userSubscription.create({ data: { userId: payment.userId, planId: payment.planId, status: SubscriptionStatus.ACTIVE, quotaTotal: payment.plan.questionQuota, startsAt, expiresAt } });
+      const subscription = await tx.userSubscription.create({ data: { userId: payment.userId, planId: payment.planId, status: SubscriptionStatus.ACTIVE, quotaTotal: payment.plan.questionQuota, voiceSecondsTotal: payment.voiceSeconds, startsAt, expiresAt } });
       const invoiceNumber = `C2I-${new Date().getUTCFullYear()}-${payment.id.slice(-8).toUpperCase()}`;
-      await tx.invoice.create({ data: { userId: payment.userId, paymentId: payment.id, invoiceNumber, subtotal: payment.amount, tax: 0, total: payment.amount } });
+      const customer = await tx.user.findUniqueOrThrow({ where: { id: payment.userId }, select: { name: true, email: true, phone: true, city: true, postalCode: true } });
+      await tx.invoice.create({ data: { userId: payment.userId, paymentId: payment.id, invoiceNumber, subtotal: payment.amount, tax: 0, total: payment.amount,
+        billingDetails: { customer, plan: { name: payment.plan.name, description: payment.plan.description, questionQuota: subscription.quotaTotal,
+          voiceSeconds: subscription.voiceSecondsTotal, startsAt: startsAt.toISOString(), expiresAt: expiresAt.toISOString() } },
+      } });
       return tx.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.PAID, providerPaymentId, providerEventId, subscriptionId: subscription.id }, include: { plan: true, subscription: true, invoice: true } });
     });
   }

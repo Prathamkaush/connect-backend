@@ -13,5 +13,8 @@ export function validateEnvironment(values: Record<string, unknown>) {
   if (typeof values[providerKey] !== 'string' || !String(values[providerKey]).trim()) {
     throw new Error(`${providerKey} is required when AI_PROVIDER=${provider}.`);
   }
+  if (values.VOICE_ENABLED !== undefined && values.VOICE_ENABLED !== 'true' && values.VOICE_ENABLED !== 'false') throw new Error('VOICE_ENABLED must be true or false.');
+  if (values.VOICE_ENABLED === 'true' && (typeof values.OPENAI_API_KEY !== 'string' || !values.OPENAI_API_KEY.trim())) throw new Error('OPENAI_API_KEY is required for voice calls.');
+  if (values.VOICE_MAX_CALL_SECONDS !== undefined && (!Number.isInteger(Number(values.VOICE_MAX_CALL_SECONDS)) || Number(values.VOICE_MAX_CALL_SECONDS) < 1 || Number(values.VOICE_MAX_CALL_SECONDS) > 3600)) throw new Error('VOICE_MAX_CALL_SECONDS must be an integer from 1 to 3600.');
   return values;
 }

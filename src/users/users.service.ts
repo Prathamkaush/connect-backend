@@ -8,7 +8,7 @@ export class UsersService {
   async getSafeProfile(id: string) {
     const user = await this.users.findById(id);
     if (!user) throw new NotFoundException({ code: 'USER_NOT_FOUND', message: 'User not found.' });
-    return { id: user.id, name: user.name, email: user.email, role: user.role, isActive: user.isActive, emailVerified: user.emailVerified, freeQuotaUsed: user.freeQuotaUsed, createdAt: user.createdAt, updatedAt: user.updatedAt };
+    return { id: user.id, name: user.name, email: user.email, phone: user.phone, city: user.city, postalCode: user.postalCode, role: user.role, isActive: user.isActive, emailVerified: user.emailVerified, freeQuotaUsed: user.freeQuotaUsed, createdAt: user.createdAt, updatedAt: user.updatedAt };
   }
   async updateProfile(id: string, dto: UpdateProfileDto) {
     await this.users.update(id, dto);

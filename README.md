@@ -25,6 +25,8 @@ Production-oriented NestJS API for the connect2infinity **Masters** AI chat and 
 
 Architecture and contracts are documented in [docs/architecture.md](docs/architecture.md) and [docs/api.md](docs/api.md).
 
+Subscription-based in-app voice calls are implemented behind `VOICE_ENABLED=false`. See [voice setup, accounting, tests, and launch blockers](docs/voice.md). Existing plans/subscriptions default to zero voice time. No automated tests initiate paid calls.
+
 ## Local setup
 
 Requirements: Node.js 22+, Docker, and Docker Compose.
@@ -160,3 +162,12 @@ OPENROUTER_DEFAULT_MODEL=openrouter/free
 Restart the backend after changing these values. Existing teacher models use the configured free model when they do not specify a free OpenRouter model. This integration accepts only `openrouter/free` or model IDs ending in `:free`; it never falls back to a paid model. Chat streaming, classification, and summaries all use the selected provider. Free models still have rate limits, and a chat can require multiple provider requests.
 
 OpenRouter documentation: https://openrouter.ai/docs/guides/routing/routers/free-router
+
+
+### Customer details and invoice PDFs
+
+Run `npm run prisma:deploy` and `npm run prisma:generate` before starting this version. The customer-details migration adds nullable phone, city and postal-code columns for existing accounts; all three fields are required for new registrations.
+
+`GET /voice/calls?limit=3&before=<ISO timestamp>&beforeId=<call ID>` returns the next three owned customer calls, using a timestamp and ID cursor to preserve calls with identical timestamps. The default page size remains 50 for existing clients.
+
+`GET /invoices/:id/pdf` requires the invoice owner's bearer token and returns a branded PDF attachment. New invoices save customer and plan details at purchase time; older invoices use available profile and subscription details. Amounts and tax come from the saved invoice. Configure `INVOICE_BUSINESS_NAME`, `INVOICE_BUSINESS_ADDRESS`, `INVOICE_SUPPORT_EMAIL` and `INVOICE_TAX_ID` with the actual seller details; optional unset details are omitted. PDFKit and the licensed Noto Sans Devanagari font package are runtime dependencies, including on production installs.

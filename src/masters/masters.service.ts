@@ -23,8 +23,8 @@ export class MastersService {
   create(dto: CreateMasterDto) { this.assertPromptSafe(dto); this.assertGuideValid(dto.guideContent); return this.masters.create(dto); }
   async update(id: string, dto: UpdateMasterDto) { this.assertPromptSafe(dto); this.assertGuideValid(dto.guideContent); const result = await this.masters.update(id, dto); await this.redis.del(`master:${id}:config`); return result; }
   deactivate(id: string) { return this.update(id, { isActive: false }); }
-  private assertPromptSafe(dto: Pick<UpdateMasterDto, 'systemPrompt' | 'personalityPrompt'>) {
-    const editable = `${dto.systemPrompt ?? ''}\n${dto.personalityPrompt ?? ''}`;
+  private assertPromptSafe(dto: Pick<UpdateMasterDto, 'systemPrompt' | 'personalityPrompt' | 'voiceInstructions'>) {
+    const editable = `${dto.systemPrompt ?? ''}\n${dto.personalityPrompt ?? ''}\n${dto.voiceInstructions ?? ''}`;
     if (/\b(ignore|override|bypass|disable)\b.{0,40}\b(system|platform|safety|previous)\b|\breveal\b.{0,30}\b(prompt|instruction|secret)\b/i.test(editable)) throw new BadRequestException({ code: 'UNSAFE_MASTER_PROMPT', message: 'Master instructions cannot override or expose platform safety rules.' });
   }
   private assertGuideValid(blocks?: UpdateMasterDto['guideContent']) {

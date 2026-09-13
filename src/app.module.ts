@@ -1,3 +1,4 @@
+import { VoiceModule } from './voice/voice.module';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import appConfig from './config/app.config';
@@ -25,7 +26,7 @@ import { validateEnvironment } from './config/environment.validation';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true, cache: true, validate: validateEnvironment, load: [appConfig, databaseConfig, redisConfig, aiConfig, paymentConfig] }),
-    PrismaModule, RedisModule, StorageModule, SettingsModule, AuthModule, UsersModule, MastersModule, ConversationsModule, ChatModule, SubscriptionsModule, UsageModule, PaymentsModule, InvoicesModule, AdminModule, HealthModule,
+    VoiceModule, PrismaModule, RedisModule, StorageModule, SettingsModule, AuthModule, UsersModule, MastersModule, ConversationsModule, ChatModule, SubscriptionsModule, UsageModule, PaymentsModule, InvoicesModule, AdminModule, HealthModule,
   ],
 })
 export class AppModule {}
