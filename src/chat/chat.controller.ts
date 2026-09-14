@@ -1,3 +1,4 @@
+import { MaintenanceGuard } from '../settings/maintenance.guard';
 import { Body, Controller, Headers, Ip, Post, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiHeader, ApiProduces, ApiTags } from '@nestjs/swagger';
 import { Response } from 'express';
@@ -10,7 +11,7 @@ import { ChatMessageDto } from './dto/chat-message.dto';
 @ApiTags('chat') @ApiBearerAuth() @UseGuards(JwtAuthGuard) @Controller('chat')
 export class ChatController {
   constructor(private readonly chat: ChatService) {}
-  @Post('messages') @ApiProduces('text/event-stream') @ApiHeader({ name: 'Idempotency-Key', required: false })
+  @UseGuards(MaintenanceGuard) @Post('messages') @ApiProduces('text/event-stream') @ApiHeader({ name: 'Idempotency-Key', required: false })
   async send(@CurrentUser() user: AuthUser, @Body() dto: ChatMessageDto, @Headers('idempotency-key') requestId: string | undefined, @Ip() ip: string, @Res() response: Response) {
     response.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
     response.flushHeaders();

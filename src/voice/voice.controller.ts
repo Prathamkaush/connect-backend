@@ -1,3 +1,4 @@
+import { MaintenanceGuard } from '../settings/maintenance.guard';
 import { Body, Controller, Get, Ip, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsDateString, IsOptional, IsInt, Min, Max, Matches } from 'class-validator';
@@ -26,7 +27,7 @@ export class VoiceController {
     const calls = await this.repo.history(user.id, query.before, query.limit, query.beforeId);
     return calls.map((call) => ({ ...this.repo.publicCall(call), createdAt: call.createdAt, master: call.master }));
   }
-  @Post('calls') create(@CurrentUser() user: AuthUser, @Ip() ip: string, @Body() dto: CreateVoiceCallDto) { return this.voice.create(user.id, ip, dto); }
+  @UseGuards(MaintenanceGuard) @Post('calls') create(@CurrentUser() user: AuthUser, @Ip() ip: string, @Body() dto: CreateVoiceCallDto) { return this.voice.create(user.id, ip, dto); }
   @Post('calls/:id/activate') activate(@CurrentUser() user: AuthUser, @Param('id', CuidPipe) id: string) { return this.voice.activate(user.id, id); }
   @Post('calls/:id/heartbeat') heartbeat(@CurrentUser() user: AuthUser, @Param('id', CuidPipe) id: string) { return this.voice.heartbeat(user.id, id); }
   @Post('calls/:id/end') end(@CurrentUser() user: AuthUser, @Param('id', CuidPipe) id: string, @Body() dto: EndVoiceCallDto) { return this.voice.end(user.id, id, dto.reason); }
@@ -35,6 +36,6 @@ export class VoiceController {
 @ApiTags('admin-voice') @ApiBearerAuth() @Roles('ADMIN', 'SUPER_ADMIN') @UseGuards(JwtAuthGuard, RolesGuard) @Controller('admin/voice')
 export class AdminVoiceController {
   constructor(private readonly voice: VoiceService, private readonly repo: VoiceRepository) {}
-  @Get('calls') history(@Query() query: HistoryQuery) { return this.repo.history(undefined, query.before); }
+  @Get('calls') history(@Query() query: HistoryQuery) { return this.repo.history(undefined, query.before, query.limit, query.beforeId); }
   @Post('test-calls') create(@CurrentUser() user: AuthUser, @Ip() ip: string, @Body() dto: CreateVoiceCallDto) { return this.voice.create(user.id, ip, dto, true); }
 }

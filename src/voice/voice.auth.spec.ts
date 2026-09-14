@@ -1,3 +1,5 @@
+import { SettingsService } from '../settings/settings.service';
+import { PrismaService } from '../prisma/prisma.service';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -19,6 +21,7 @@ describe('voice HTTP authentication and request validation (no provider)', () =>
   const users = { findById: jest.fn().mockImplementation((id: string) => Promise.resolve({ id, email: 'test@example.test', isActive: id !== 'disabled', role: id === 'admin' ? 'ADMIN' : 'USER' })) };
   beforeAll(async () => {
     const module = await Test.createTestingModule({ imports: [PassportModule], controllers: [VoiceController, AdminVoiceController], providers: [
+      { provide: SettingsService, useValue: { all: async () => ({}) } }, { provide: PrismaService, useValue: {} },
       JwtStrategy, { provide: ConfigService, useValue: new ConfigService({ JWT_ACCESS_SECRET: secret }) },
       { provide: UsersRepository, useValue: users }, { provide: VoiceService, useValue: voice },
       { provide: VoiceRepository, useValue: { history } },

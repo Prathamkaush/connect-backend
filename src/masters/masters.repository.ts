@@ -10,5 +10,5 @@ export class MastersRepository {
   findConfigById(id: string) { return this.prisma.master.findUnique({ where: { id } }); }
   create(data: Prisma.MasterCreateInput) { return this.prisma.master.create({ data }); }
   update(id: string, data: Prisma.MasterUpdateInput) { return this.prisma.master.update({ where: { id }, data }); }
-  listAdmin() { return this.prisma.master.findMany({ orderBy: { createdAt: 'desc' } }); }
+  listAdmin() { return this.prisma.master.findMany({ orderBy: { createdAt: 'desc' }, include: { _count: { select: { conversations: true } } } }); }
 }

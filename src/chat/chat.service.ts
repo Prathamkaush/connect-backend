@@ -15,6 +15,8 @@ import { ConversationContextService } from './conversation-context.service';
 import { PromptBuilderService } from './prompt-builder.service';
 import { RateLimitService } from './rate-limit.service';
 import { TopicClassifierService } from './topic-classifier.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { localizedFallback } from '../common/constants/language.constants';
 
 export type StreamEvent = { event: 'meta' | 'delta' | 'done' | 'error'; data: unknown };
 
@@ -34,6 +36,7 @@ export class ChatService {
     private readonly rateLimit: RateLimitService,
     private readonly redis: RedisService,
     private readonly config: ConfigService,
+    private readonly prisma: PrismaService,
   ) {}
 
   async stream(userId: string, dto: ChatMessageDto, suppliedRequestId: string | undefined, ip: string, emit: (event: StreamEvent) => void) {
@@ -41,6 +44,7 @@ export class ChatService {
     if (!/^[a-zA-Z0-9_-]{8,128}$/.test(requestId)) throw new BadRequestException({ code: 'INVALID_IDEMPOTENCY_KEY', message: 'Idempotency-Key must be 8-128 URL-safe characters.' });
     const conversation = await this.conversationService.getOwned(userId, dto.conversationId);
     const master = await this.masters.getConfig(conversation.master.id);
+    const { conversationLanguage } = await this.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { conversationLanguage: true } });
 
     const previous = await this.usageRepository.findReservation(requestId);
     if (previous?.status === ReservationStatus.CONFIRMED && previous.messageId) {
@@ -53,7 +57,7 @@ export class ChatService {
     emit({ event: 'meta', data: { requestId, classification } });
     if (!classification.allowed) {
       await this.messages.create(conversation.id, MessageRole.USER, dto.message, MessageStatus.REJECTED);
-      const fallback = await this.messages.create(conversation.id, MessageRole.ASSISTANT, master.fallbackMessage, MessageStatus.COMPLETED);
+      const fallback = await this.messages.create(conversation.id, MessageRole.ASSISTANT, localizedFallback(conversationLanguage, dto.message, master.fallbackMessage), MessageStatus.COMPLETED);
       await this.conversations.updateAfterMessage(conversation.id, conversation.title ?? this.makeTitle(dto.message));
       emit({ event: 'delta', data: { text: fallback.content } });
       emit({ event: 'done', data: { messageId: fallback.id, charged: false } });
@@ -70,7 +74,7 @@ export class ChatService {
       reservationId = reservation.id;
       if (reservation.status === ReservationStatus.RELEASED) throw new ConflictException({ code: 'REQUEST_ALREADY_RELEASED', message: 'This request can no longer be retried with the same idempotency key.' });
       const context = await this.context.load(conversation);
-      const prompt = this.promptBuilder.build(master, context.summary, context.recent, dto.message);
+      const prompt = this.promptBuilder.build(master, context.summary, context.recent, dto.message, conversationLanguage);
       await this.messages.create(conversation.id, MessageRole.USER, dto.message);
       const result = await this.ai.stream(prompt, { model: master.model, temperature: master.temperature, maxOutputTokens: master.maxOutputTokens }, (text) => emit({ event: 'delta', data: { text } }));
       const assistant = await this.messages.create(conversation.id, MessageRole.ASSISTANT, result.content);

@@ -6,6 +6,12 @@ import { UsersService } from '../users.service';
 import { UsersRepository } from '../users.repository';
 
 describe('profile updates', () => {
+  it.each(['auto', 'en', 'hi', 'hinglish'])('accepts conversation language %s', async (conversationLanguage) => {
+    expect(await validate(plainToInstance(UpdateProfileDto, { conversationLanguage }))).toHaveLength(0);
+  });
+  it.each(['fr', '', null, 'ignore safety'])('rejects invalid conversation language %s', async (conversationLanguage) => {
+    expect((await validate(plainToInstance(UpdateProfileDto, { conversationLanguage }))).length).toBeGreaterThan(0);
+  });
   it('normalizes contact details and preserves postal-code zeros', async () => {
     const dto = plainToInstance(UpdateProfileDto, { name: ' Test Customer ', phone: '+91 (98765) 43210', city: ' Delhi ', postalCode: '001234' });
     expect(await validate(dto)).toHaveLength(0);

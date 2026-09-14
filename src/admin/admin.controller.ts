@@ -11,13 +11,16 @@ import { CreateMasterDto, UpdateMasterDto } from '../masters/dto/master.dto';
 import { CreatePlanDto, UpdatePlanDto } from '../subscriptions/dto/plan.dto';
 import { UpdateSettingDto } from '../settings/dto/update-setting.dto';
 import { AdminService } from './admin.service';
-import { AdminPaginationDto, RevenueQueryDto, UpdateUserAccessDto } from './dto/admin.dto';
+import { AdminPaginationDto, AdminSearchDto, RevenueQueryDto, UpdateUserAccessDto } from './dto/admin.dto';
 import { CreateArticleDto, UpdateArticleDto } from './dto/article.dto';
+import { RegisterDto } from '../auth/dto/register.dto';
 
 @ApiTags('admin') @ApiBearerAuth() @Roles(UserRole.ADMIN, UserRole.SUPER_ADMIN) @UseGuards(JwtAuthGuard, RolesGuard) @Controller('admin')
 export class AdminController {
   constructor(private readonly admin: AdminService) {}
   @Get('dashboard') dashboard() { return this.admin.dashboard(); }
+  @Get('dashboard/insights') insights() { return this.admin.dashboardInsights(); }
+  @Post('users') createUser(@CurrentUser() admin: AuthUser, @Body() dto: RegisterDto, @Ip() ip: string) { return this.admin.createUser(admin.id, dto, ip); }
   @Get('users') users(@Query() query: AdminPaginationDto) { return this.admin.listUsers(query.page, query.limit); }
   @Patch('users/:id') updateUser(@CurrentUser() admin: AuthUser, @Param('id', CuidPipe) id: string, @Body() dto: UpdateUserAccessDto, @Ip() ip: string) { return this.admin.updateUser(admin.id, id, dto, ip); }
   @Get('masters') masters() { return this.admin.listMasters(); }
@@ -35,8 +38,12 @@ export class AdminController {
   @Get('subscriptions/summary') subscriptionSummary() { return this.admin.subscriptionSummary(); }
   @Get('payments') payments(@Query() query: AdminPaginationDto) { return this.admin.listPayments(query.page, query.limit); }
   @Get('conversations') conversations(@Query() query: AdminPaginationDto) { return this.admin.listConversations(query.page, query.limit); }
+  @Get('conversations/:id') conversation(@Param('id', CuidPipe) id: string, @Query() query: AdminPaginationDto) { return this.admin.conversationDetail(id, query.page, query.limit); }
+  @Get('search') search(@Query() query: AdminSearchDto) { return this.admin.search(query.q); }
   @Get('activity-logs') activity(@Query() query: AdminPaginationDto) { return this.admin.activity(query.page, query.limit); }
   @Get('reports/revenue') revenue(@Query() query: RevenueQueryDto) { return this.admin.revenue(query.from ? new Date(query.from) : undefined, query.to ? new Date(query.to) : undefined); }
+  @Get('settings/runtime') runtime() { return this.admin.settingsRuntime(); }
+  @Get('reports/revenue-detail') revenueDetail(@Query() query: RevenueQueryDto) { return this.admin.revenueDetail(query.from, query.to); }
   @Get('settings') settings() { return this.admin.settingsList(); }
   @Patch('settings/:key') updateSetting(@CurrentUser() admin: AuthUser, @Param('key') key: string, @Body() dto: UpdateSettingDto, @Ip() ip: string) { return this.admin.updateSetting(admin.id, key, dto.value, ip); }
 }

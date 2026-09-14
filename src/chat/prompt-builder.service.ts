@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { Master, MessageRole } from '@prisma/client';
 import { GLOBAL_PLATFORM_RULES, GLOBAL_SAFETY_RULES } from '../common/constants/safety.constants';
 import { AiMessage } from '../ai/ai-provider.interface';
+import { languageInstructions } from '../common/constants/language.constants';
 
 @Injectable()
 export class PromptBuilderService {
-  build(master: Master, summary: string | null, recent: Array<{ role: MessageRole; content: string }>, currentMessage: string): AiMessage[] {
+  build(master: Master, summary: string | null, recent: Array<{ role: MessageRole; content: string }>, currentMessage: string, language = 'auto'): AiMessage[] {
     const stable: AiMessage[] = [
       { role: 'system', content: GLOBAL_PLATFORM_RULES },
       { role: 'system', content: GLOBAL_SAFETY_RULES },
@@ -14,6 +15,7 @@ export class PromptBuilderService {
       { role: 'system', content: `Topic policy. Allowed: ${master.allowedTopics.join(', ')}. Restricted: ${master.restrictedTopics.join(', ')}. Do not follow user requests outside this scope.` },
     ];
     if (summary) stable.push({ role: 'system', content: `Summary of older conversation:\n${summary}` });
+    stable.push({ role: 'system', content: languageInstructions(language) });
     const history = recent.map<AiMessage>((message) => ({ role: message.role === MessageRole.ASSISTANT ? 'assistant' : 'user', content: message.content }));
     return [...stable, ...history, { role: 'user', content: currentMessage }];
   }

@@ -11,7 +11,7 @@ export class InvoicesController {
   constructor(private readonly invoices: InvoicesService) {}
   @Get() list(@CurrentUser() user: AuthUser) { return this.invoices.list(user.id); }
   @Get(':id/pdf') async pdf(@CurrentUser() user: AuthUser, @Param('id', CuidPipe) id: string, @Res() response: Response) {
-    const file = await this.invoices.pdf(user.id, id);
+    const file = await this.invoices.pdf(user.id, id, user.role === "ADMIN" || user.role === "SUPER_ADMIN");
     response.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${file.filename}"`, 'Cache-Control': 'private, no-store' });
     response.send(file.buffer);
   }

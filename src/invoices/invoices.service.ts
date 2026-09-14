@@ -6,16 +6,16 @@ import { generateInvoicePdf, InvoiceCustomer, InvoicePlan } from './invoice-pdf'
 export class InvoicesService {
   constructor(private readonly prisma: PrismaService, private readonly config: ConfigService) {}
   list(userId: string) { return this.prisma.invoice.findMany({ where: { userId }, orderBy: { createdAt: 'desc' }, include: { payment: { select: { provider: true, providerPaymentId: true, currency: true } } } }); }
-  async get(userId: string, id: string) {
-    const invoice = await this.prisma.invoice.findFirst({ where: { id, userId }, include: {
+  async get(userId: string, id: string, admin = false) {
+    const invoice = await this.prisma.invoice.findFirst({ where: { id, ...(admin ? {} : { userId }) }, include: {
       user: { select: { name: true, email: true, phone: true, city: true, postalCode: true } },
       payment: { include: { plan: true, subscription: true } },
     } });
     if (!invoice) throw new ForbiddenException({ code: 'INVOICE_UNAVAILABLE', message: 'Invoice not found or not accessible.' });
     return invoice;
   }
-  async pdf(userId: string, id: string) {
-    const invoice = await this.get(userId, id);
+  async pdf(userId: string, id: string, admin = false) {
+    const invoice = await this.get(userId, id, admin);
     const snapshot = invoice.billingDetails as { customer?: InvoiceCustomer; plan?: InvoicePlan } | null;
     const payment = invoice.payment;
     const buffer = await generateInvoicePdf({

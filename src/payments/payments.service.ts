@@ -1,3 +1,4 @@
+import { PaymentHistoryDto } from './dto/payment-history.dto';
 import { ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { PaymentProvider, PaymentStatus, SubscriptionStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -33,7 +34,7 @@ export class PaymentsService {
     await this.gateway.assertCaptured(String(entity.id), { orderId: payment.providerOrderId, amount: payment.amount.mul(100).toNumber(), currency: payment.currency });
     return this.activate(String(entity.order_id), String(entity.id), eventId);
   }
-  list(userId: string) { return this.payments.listOwned(userId); }
+  list(userId: string, query: PaymentHistoryDto = { limit: 5 }) { return this.payments.listOwned(userId, query); }
   async get(userId: string, id: string) { const payment = await this.payments.owned(id, userId); if (!payment) throw new ForbiddenException({ code: 'PAYMENT_UNAVAILABLE', message: 'Payment not found or not accessible.' }); return payment; }
 
   private async activate(providerOrderId: string, providerPaymentId: string, providerEventId?: string) {

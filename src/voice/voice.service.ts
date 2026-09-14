@@ -51,6 +51,7 @@ export class VoiceService implements OnModuleInit, OnModuleDestroy {
     ]);
     if (userCount > 5 || ipCount > 20) throw new HttpException({ code: 'VOICE_RATE_LIMIT', message: 'Too many call attempts. Please wait a minute.' }, 429);
     const master = await this.repo.prisma.master.findUniqueOrThrow({ where: { id: dto.masterId } });
+    const { conversationLanguage } = await this.repo.prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { conversationLanguage: true } });
     let summary: string | null = null;
     if (dto.conversationId) {
       const conversation = await this.repo.prisma.conversation.findFirst({ where: { id: dto.conversationId, userId, masterId: master.id, status: 'ACTIVE' }, select: { summary: true } });
@@ -62,7 +63,7 @@ export class VoiceService implements OnModuleInit, OnModuleDestroy {
     const call = await this.repo.reserve(userId, master.id, dto.requestId, model, maxSeconds, isAdminTest);
     let providerId: string | undefined;
     try {
-      const result = await this.provider.create(dto.sdp, model, master.voice, voiceInstructions(master, summary), userId);
+      const result = await this.provider.create(dto.sdp, model, master.voice, voiceInstructions(master, summary, conversationLanguage), userId);
       providerId = result.callId;
       this.providerIds.set(call.id, providerId);
       // Persist the remote ID before sending SDP to the browser. Setup timeout and

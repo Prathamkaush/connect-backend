@@ -1,7 +1,11 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsOptional, IsString, Length, Matches } from 'class-validator';
+import { IsIn, IsOptional, IsString, Length, Matches, ValidateIf } from 'class-validator';
+import { CONVERSATION_LANGUAGES, ConversationLanguage } from '../../common/constants/language.constants';
 import { Transform } from 'class-transformer';
 export class UpdateProfileDto {
+  @ApiPropertyOptional({ enum: [...CONVERSATION_LANGUAGES] })
+  @ValidateIf((_object, value: unknown) => value !== undefined)
+  @IsIn(CONVERSATION_LANGUAGES) conversationLanguage?: ConversationLanguage;
   @ApiPropertyOptional() @IsOptional()
   @Transform(({ value }: { value: unknown }) => typeof value === 'string' ? value.trim() : value)
   @IsString() @Length(2, 80) name?: string;

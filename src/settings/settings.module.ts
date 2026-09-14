@@ -1,4 +1,6 @@
-import { Module } from '@nestjs/common';
+import { Global, Module } from '@nestjs/common';
+import { MaintenanceGuard } from './maintenance.guard';
 import { SettingsService } from './settings.service';
-@Module({ providers: [SettingsService], exports: [SettingsService] })
+@Global()
+@Module({ providers: [SettingsService, MaintenanceGuard], exports: [SettingsService, MaintenanceGuard] })
 export class SettingsModule {}
