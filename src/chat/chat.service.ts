@@ -17,6 +17,7 @@ import { RateLimitService } from './rate-limit.service';
 import { TopicClassifierService } from './topic-classifier.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { localizedFallback } from '../common/constants/language.constants';
+import { CHAT_MIN_OUTPUT_TOKENS } from '../common/constants/response.constants';
 
 export type StreamEvent = { event: 'meta' | 'delta' | 'done' | 'error'; data: unknown };
 
@@ -76,7 +77,7 @@ export class ChatService {
       const context = await this.context.load(conversation);
       const prompt = this.promptBuilder.build(master, context.summary, context.recent, dto.message, conversationLanguage);
       await this.messages.create(conversation.id, MessageRole.USER, dto.message);
-      const result = await this.ai.stream(prompt, { model: master.model, temperature: master.temperature, maxOutputTokens: master.maxOutputTokens }, (text) => emit({ event: 'delta', data: { text } }));
+      const result = await this.ai.stream(prompt, { model: master.model, temperature: master.temperature, maxOutputTokens: Math.max(master.maxOutputTokens, CHAT_MIN_OUTPUT_TOKENS) }, (text) => emit({ event: 'delta', data: { text } }));
       const assistant = await this.messages.create(conversation.id, MessageRole.ASSISTANT, result.content);
       await this.messages.update(assistant.id, { inputTokens: result.inputTokens, outputTokens: result.outputTokens });
       await this.usage.confirm(reservation.id, assistant.id);

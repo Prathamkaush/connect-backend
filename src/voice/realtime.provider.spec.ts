@@ -10,7 +10,7 @@ describe('Realtime provider (mocked HTTP, no API spend)', () => {
     const form = fetchMock.mock.calls[0][1]?.body as FormData;
     const session = JSON.parse(form.get('session') as string) as Record<string, any>;
     expect(session.audio.input).toEqual({ transcription: null, turn_detection: null });
-    expect(session.max_output_tokens).toBe(256); expect(session.tracing).toBeNull();
+    expect(session.max_output_tokens).toBe(2048); expect(session.tracing).toBeNull();
     expect(session.instructions).toBe('private teacher prompt'); expect(session.tools).toEqual([]);
   });
   it('uses actual provider hang-up and does not treat authentication/5xx errors as termination', async () => {

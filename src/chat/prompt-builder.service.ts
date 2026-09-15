@@ -3,6 +3,7 @@ import { Master, MessageRole } from '@prisma/client';
 import { GLOBAL_PLATFORM_RULES, GLOBAL_SAFETY_RULES } from '../common/constants/safety.constants';
 import { AiMessage } from '../ai/ai-provider.interface';
 import { languageInstructions } from '../common/constants/language.constants';
+import { CHAT_RESPONSE_RULES } from '../common/constants/response.constants';
 
 @Injectable()
 export class PromptBuilderService {
@@ -16,6 +17,7 @@ export class PromptBuilderService {
     ];
     if (summary) stable.push({ role: 'system', content: `Summary of older conversation:\n${summary}` });
     stable.push({ role: 'system', content: languageInstructions(language) });
+    stable.push({ role: 'system', content: CHAT_RESPONSE_RULES });
     const history = recent.map<AiMessage>((message) => ({ role: message.role === MessageRole.ASSISTANT ? 'assistant' : 'user', content: message.content }));
     return [...stable, ...history, { role: 'user', content: currentMessage }];
   }

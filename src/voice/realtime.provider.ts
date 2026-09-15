@@ -2,6 +2,7 @@ import { Injectable, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { createHash } from 'node:crypto';
 import { WebSocket, RawData } from 'ws';
+import { VOICE_MAX_OUTPUT_TOKENS } from '../common/constants/response.constants';
 
 export type ProviderEvent = { type: string; response?: { id: string; usage?: Record<string, unknown>; output?: Array<{ content?: Array<{ transcript?: string }> }> } };
 export type VoiceControl = { enable: () => Promise<void>; close: () => void; healthy: () => boolean };
@@ -16,7 +17,7 @@ export class RealtimeProvider {
     const form = new FormData();
     form.set('sdp', sdp);
     form.set('session', JSON.stringify({ type: 'realtime', model, instructions,
-      output_modalities: ['audio'], max_output_tokens: 256, tools: [], tracing: null,
+      output_modalities: ['audio'], max_output_tokens: VOICE_MAX_OUTPUT_TOKENS, tools: [], tracing: null,
       audio: { input: { transcription: null, turn_detection: null }, output: { voice } },
     }));
     // Intentionally no retries: an ambiguous POST must not allocate a second call.
