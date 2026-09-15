@@ -24,14 +24,18 @@ export class UsageService {
       return await this.prisma.$transaction(async (tx) => {
         const again = await tx.questionReservation.findUnique({ where: { requestId } });
         if (again) return again;
+        // Charge the same allowance returned by /subscriptions/current.
+        // Free questions are only used when there is no active paid plan.
+        const subscription = await tx.userSubscription.findFirst({ where: { userId, status: SubscriptionStatus.ACTIVE, expiresAt: { gt: new Date() } }, orderBy: { expiresAt: 'desc' } });
+        if (subscription) {
+          const changed = await tx.$executeRaw`UPDATE "UserSubscription" SET "quotaReserved" = "quotaReserved" + 1 WHERE "id" = ${subscription.id} AND "quotaUsed" + "quotaReserved" < "quotaTotal"`;
+          if (!changed) throw new QuotaExhaustedException();
+          return tx.questionReservation.create({ data: { requestId, userId, conversationId, subscriptionId: subscription.id, usageType: UsageType.SUBSCRIPTION, expiresAt: new Date(Date.now() + 5 * 60_000) } });
+        }
         const freeLimit = this.config.get<number>('app.freeQuestionLimit', 5);
         const freeRows = await tx.$queryRaw<Array<{ id: string }>>`UPDATE "User" SET "freeQuotaReserved" = "freeQuotaReserved" + 1 WHERE "id" = ${userId} AND "freeQuotaUsed" + "freeQuotaReserved" < ${freeLimit} RETURNING "id"`;
-        if (freeRows.length) return tx.questionReservation.create({ data: { requestId, userId, conversationId, usageType: UsageType.FREE, expiresAt: new Date(Date.now() + 5 * 60_000) } });
-        const subscription = await tx.userSubscription.findFirst({ where: { userId, status: SubscriptionStatus.ACTIVE, expiresAt: { gt: new Date() } }, orderBy: { expiresAt: 'desc' } });
-        if (!subscription) throw new QuotaExhaustedException();
-        const changed = await tx.$executeRaw`UPDATE "UserSubscription" SET "quotaReserved" = "quotaReserved" + 1 WHERE "id" = ${subscription.id} AND "quotaUsed" + "quotaReserved" < "quotaTotal"`;
-        if (!changed) throw new QuotaExhaustedException();
-        return tx.questionReservation.create({ data: { requestId, userId, conversationId, subscriptionId: subscription.id, usageType: UsageType.SUBSCRIPTION, expiresAt: new Date(Date.now() + 5 * 60_000) } });
+        if (!freeRows.length) throw new QuotaExhaustedException();
+        return tx.questionReservation.create({ data: { requestId, userId, conversationId, usageType: UsageType.FREE, expiresAt: new Date(Date.now() + 5 * 60_000) } });
       }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
     } catch (error) {
       if (error instanceof QuotaExhaustedException) throw error;
